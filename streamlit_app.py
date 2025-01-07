@@ -14,78 +14,83 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Wprowadzenie klucza API przez użytkownika
-st.title("Planowanie posiłków")
-st.header("Wprowadź klucz API OpenAI")
-api_key = st.text_input("Klucz API", type="password")
+def generate_meal_plan_day(prompt, client):
+    """Generowanie planu posiłków na jeden dzień przy użyciu OpenAI."""
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",  # Możesz użyć też gpt-4, jeśli masz dostęp
+        messages=[
+            {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=1500  # Mniejsza liczba tokenów dla odpowiedzi na jeden dzień
+    )
+    return response.choices[0].message.content
 
-# Jeśli klucz API został wprowadzony
-if api_key:
+def generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies, client):
+    """Generowanie planu posiłków na trzy dni."""
+    prompts = [
+        f"Stwórz plan posiłków na dzień 1, uwzględniając następujące wymagania:\n"
+        f"- Dzienna liczba kalorii: {calories} kcal\n"
+        f"- Produkty wykluczone: {exclusions}\n"
+        f"- Liczba posiłków dziennie: {meals_per_day}\n"
+        f"- Budżet dzienny: {budget} zł\n"
+        f"- Składniki alergiczne: {allergies}\n\n"
+        f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania.Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
+
+        f"Stwórz plan posiłków na dzień 2, uwzględniając następujące wymagania:\n"
+        f"- Dzienna liczba kalorii: {calories} kcal\n"
+        f"- Produkty wykluczone: {exclusions}\n"
+        f"- Liczba posiłków dziennie: {meals_per_day}\n"
+        f"- Budżet dzienny: {budget} zł\n"
+        f"- Składniki alergiczne: {allergies}\n\n"
+        f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania.Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
+
+        f"Stwórz plan posiłków na dzień 3, uwzględniając następujące wymagania:\n"
+        f"- Dzienna liczba kalorii: {calories} kcal\n"
+        f"- Produkty wykluczone: {exclusions}\n"
+        f"- Liczba posiłków dziennie: {meals_per_day}\n"
+        f"- Budżet dzienny: {budget} zł\n"
+        f"- Składniki alergiczne: {allergies}\n\n"
+        f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania.Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."
+    ]
+
+    day1 = generate_meal_plan_day(prompts[0], client)
+    day2 = generate_meal_plan_day(prompts[1], client)
+    day3 = generate_meal_plan_day(prompts[2], client)
+
+    return day1, day2, day3
+
+def apply_modifications(original_plan, modifications, client):
+    """Zastosowanie poprawek do istniejącego planu."""
+    prompt = f"Oto oryginalny plan posiłków:\n{original_plan}\n\n"
+    prompt += f"Użytkownik zasugerował następujące zmiany:\n{modifications}\n\n"
+    prompt += "Zaktualizuj plan posiłków zgodnie z sugestiami użytkownika."
+
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków.Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=1500
+    )
+
+    return response.choices[0].message.content
+
+def main():
+    st.title("Planowanie posiłków")
+
+    # Użytkownik wprowadza klucz API
+    api_key = st.text_input("Wprowadź swój klucz API OpenAI:", type="password")
+
+    if not api_key:
+        st.warning("Proszę wprowadzić klucz API, aby kontynuować.")
+        return
+
+    # Inicjalizacja klienta OpenAI
     client = OpenAI(api_key=api_key)
 
-    def generate_meal_plan_day(prompt):
-        """Generowanie planu posiłków na jeden dzień przy użyciu OpenAI."""
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Możesz użyć też gpt-4, jeśli masz dostęp
-            messages=[
-                {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500  # Mniejsza liczba tokenów dla odpowiedzi na jeden dzień
-        )
-        return response.choices[0].message.content
-
-    def generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies):
-        """Generowanie planu posiłków na trzy dni."""
-        prompts = [
-            f"Stwórz plan posiłków na dzień 1, uwzględniając następujące wymagania:\n"
-            f"- Dzienna liczba kalorii: {calories} kcal\n"
-            f"- Produkty wykluczone: {exclusions}\n"
-            f"- Liczba posiłków dziennie: {meals_per_day}\n"
-            f"- Budżet dzienny: {budget} zł\n"
-            f"- Składniki alergiczne: {allergies}\n\n"
-            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
-
-            f"Stwórz plan posiłków na dzień 2, uwzględniając następujące wymagania:\n"
-            f"- Dzienna liczba kalorii: {calories} kcal\n"
-            f"- Produkty wykluczone: {exclusions}\n"
-            f"- Liczba posiłków dziennie: {meals_per_day}\n"
-            f"- Budżet dzienny: {budget} zł\n"
-            f"- Składniki alergiczne: {allergies}\n\n"
-            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
-
-            f"Stwórz plan posiłków na dzień 3, uwzględniając następujące wymagania:\n"
-            f"- Dzienna liczba kalorii: {calories} kcal\n"
-            f"- Produkty wykluczone: {exclusions}\n"
-            f"- Liczba posiłków dziennie: {meals_per_day}\n"
-            f"- Budżet dzienny: {budget} zł\n"
-            f"- Składniki alergiczne: {allergies}\n\n"
-            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."
-        ]
-
-        day1 = generate_meal_plan_day(prompts[0])
-        day2 = generate_meal_plan_day(prompts[1])
-        day3 = generate_meal_plan_day(prompts[2])
-
-        return day1, day2, day3
-
-    def apply_modifications(original_plan, modifications):
-        """Zastosowanie poprawek do istniejącego planu."""
-        prompt = f"Oto oryginalny plan posiłków:\n{original_plan}\n\n"
-        prompt += f"Użytkownik zasugerował następujące zmiany:\n{modifications}\n\n"
-        prompt += "Zaktualizuj plan posiłków zgodnie z sugestiami użytkownika."
-
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500
-        )
-
-        return response.choices[0].message.content
-
+    # Zbieranie danych od użytkownika
     st.header("Dostosuj swój plan posiłków")
     calories = st.number_input("Ile spożywasz/chcesz spożywać kcal dziennie?", min_value=1000, max_value=5000, step=100)
     exclusions = st.text_area("Jakie produkty nie są/nie mogą być w twojej diecie?")
@@ -95,7 +100,7 @@ if api_key:
 
     if st.button("Generuj plan posiłków"):
         st.info("Generowanie planu posiłków. Proszę czekać...")
-        day1, day2, day3 = generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies)
+        day1, day2, day3 = generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies, client)
         st.session_state["day1"] = day1
         st.session_state["day2"] = day2
         st.session_state["day3"] = day3
@@ -112,6 +117,7 @@ if api_key:
         st.subheader("Dzień 3:")
         st.text_area("Plan posiłków - Dzień 3", st.session_state["day3"], height=1500, key="day3_text")
 
+    # Możliwość modyfikacji
     if "day1" in st.session_state:
         st.header("Czy taki plan Ci odpowiada?")
         feedback = st.radio("Opcje:", ("Tak, jest idealny!", "Nie, chciałbym wprowadzić zmiany."))
@@ -122,9 +128,9 @@ if api_key:
             if st.button("Prześlij poprawki"):
                 st.session_state["modifications"] = modifications
 
-                updated_day1 = apply_modifications(st.session_state["day1"], modifications)
-                updated_day2 = apply_modifications(st.session_state["day2"], modifications)
-                updated_day3 = apply_modifications(st.session_state["day3"], modifications)
+                updated_day1 = apply_modifications(st.session_state["day1"], modifications, client)
+                updated_day2 = apply_modifications(st.session_state["day2"], modifications, client)
+                updated_day3 = apply_modifications(st.session_state["day3"], modifications, client)
 
                 st.session_state["day1"] = updated_day1
                 st.session_state["day2"] = updated_day2
@@ -140,5 +146,6 @@ if api_key:
 
                 st.subheader("Zaktualizowany plan - Dzień 3:")
                 st.text_area("Plan posiłków - Dzień 3", updated_day3, height=300)
-else:
-    st.warning("Proszę wprowadzić klucz API, aby kontynuować.")
+
+if __name__ == "__main__":
+    main()
