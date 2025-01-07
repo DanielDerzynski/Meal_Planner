@@ -1,89 +1,91 @@
 import streamlit as st
 from openai import OpenAI
-import pandas as pd
+import streamlit.components.v1 as components
 
-# Klucz API OpenAI
-client = OpenAI(api_key="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")
-
-def generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies):
-    """Generowanie planu posiłków, przepisów i listy zakupów przy użyciu OpenAI."""
-    prompt = f"""
-    Stwórz plan posiłków na 7 dni, uwzględniając następujące wymagania:
-    - Dzienna liczba kalorii: {calories} kcal
-    - Produkty wykluczone: {exclusions}
-    - Liczba posiłków dziennie: {meals_per_day}
-    - Budżet dzienny: {budget} zł
-    - Składniki alergiczne: {allergies}
-
-    Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.
+# CSS dla zmiany tła
+st.markdown(
     """
+    <style>
+    .stApp {
+        background-color: #b3d9ff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-    response = client.chat.completions.create(model="gpt-3.5-turbo",  # Możesz użyć też gpt-4, jeśli masz dostęp
-    messages=[
-        {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków."},
-        {"role": "user", "content": prompt}
-    ],
-    max_tokens=1500)
+# Wprowadzenie klucza API przez użytkownika
+st.title("Planowanie posiłków")
+st.header("Wprowadź klucz API OpenAI")
+api_key = st.text_input("Klucz API", type="password")
 
-    return response.choices[0].message.content
+# Jeśli klucz API został wprowadzony
+if api_key:
+    client = OpenAI(api_key=api_key)
 
-def save_to_excel(plan_text):
-    """Zapisuje plan posiłków, przepisy i listę zakupów do pliku Excel."""
-    days = plan_text.split("Dzień")
-    data = []
-    shopping_list = set()
-    recipe_details = []
+    def generate_meal_plan_day(prompt):
+        """Generowanie planu posiłków na jeden dzień przy użyciu OpenAI."""
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # Możesz użyć też gpt-4, jeśli masz dostęp
+            messages=[
+                {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500  # Mniejsza liczba tokenów dla odpowiedzi na jeden dzień
+        )
+        return response.choices[0].message.content
 
-    for day in days[1:]:
-        lines = day.strip().split("\n")
-        day_name = lines[0].strip()
-        for line in lines[1:]:
-            if line.strip():
-                if "-" in line:
-                    meal, description = line.split("-", 1)
-                    # Dodajemy posiłek do planu
-                    data.append([day_name, meal.strip(), description.strip()])
-                    # Dodajemy składniki posiłku do listy zakupów
-                    ingredients = extract_ingredients(description)
-                    shopping_list.update(ingredients)
-                    # Dodajemy szczegóły przepisu
-                    recipe_details.append([meal.strip(), description.strip()])
+    def generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies):
+        """Generowanie planu posiłków na trzy dni."""
+        prompts = [
+            f"Stwórz plan posiłków na dzień 1, uwzględniając następujące wymagania:\n"
+            f"- Dzienna liczba kalorii: {calories} kcal\n"
+            f"- Produkty wykluczone: {exclusions}\n"
+            f"- Liczba posiłków dziennie: {meals_per_day}\n"
+            f"- Budżet dzienny: {budget} zł\n"
+            f"- Składniki alergiczne: {allergies}\n\n"
+            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
 
-    # Tworzymy DataFrame z planem posiłków
-    df = pd.DataFrame(data, columns=["Dzień", "Posiłek", "Opis"])
+            f"Stwórz plan posiłków na dzień 2, uwzględniając następujące wymagania:\n"
+            f"- Dzienna liczba kalorii: {calories} kcal\n"
+            f"- Produkty wykluczone: {exclusions}\n"
+            f"- Liczba posiłków dziennie: {meals_per_day}\n"
+            f"- Budżet dzienny: {budget} zł\n"
+            f"- Składniki alergiczne: {allergies}\n\n"
+            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania.",
 
-    # Tworzymy listę zakupów
-    shopping_list = list(shopping_list)
-    shopping_list.sort()
+            f"Stwórz plan posiłków na dzień 3, uwzględniając następujące wymagania:\n"
+            f"- Dzienna liczba kalorii: {calories} kcal\n"
+            f"- Produkty wykluczone: {exclusions}\n"
+            f"- Liczba posiłków dziennie: {meals_per_day}\n"
+            f"- Budżet dzienny: {budget} zł\n"
+            f"- Składniki alergiczne: {allergies}\n\n"
+            f"Plan posiłków powinien zawierać szczegółowe przepisy na każdy posiłek, w tym składniki i sposób przygotowania. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."
+        ]
 
-    # Określamy ścieżkę i zapisujemy plik w folderze tymczasowym
-    file_path = "/tmp/PlanPosilkow.xlsx"
-    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name="Plan Posiłków", index=False)
+        day1 = generate_meal_plan_day(prompts[0])
+        day2 = generate_meal_plan_day(prompts[1])
+        day3 = generate_meal_plan_day(prompts[2])
 
-        # Dodajemy arkusz z listą zakupów
-        shopping_df = pd.DataFrame(shopping_list, columns=["Lista Zakupów"])
-        shopping_df.to_excel(writer, sheet_name="Lista Zakupów", index=False)
-        
-        # Dodajemy arkusz z przepisami
-        recipes_df = pd.DataFrame(recipe_details, columns=["Posiłek", "Przepis"])
-        recipes_df.to_excel(writer, sheet_name="Przepisy", index=False)
+        return day1, day2, day3
 
-    return file_path
+    def apply_modifications(original_plan, modifications):
+        """Zastosowanie poprawek do istniejącego planu."""
+        prompt = f"Oto oryginalny plan posiłków:\n{original_plan}\n\n"
+        prompt += f"Użytkownik zasugerował następujące zmiany:\n{modifications}\n\n"
+        prompt += "Zaktualizuj plan posiłków zgodnie z sugestiami użytkownika."
 
-def extract_ingredients(description):
-    """Funkcja do ekstrakcji składników z opisu przepisu."""
-    # Zakładamy, że składniki będą zaczynać się od słowa 'Składniki:'
-    ingredients = []
-    if "Składniki:" in description:
-        ingredients_start = description.split("Składniki:")[1]
-        ingredients = [ingredient.strip() for ingredient in ingredients_start.split(",")]
-    return ingredients
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Jesteś asystentem kulinarnym pomagającym w planowaniu posiłków. Na końcu planu dodaj również listę zakupów obejmującą wszystkie składniki, które będą potrzebne do przygotowania tych posiłków. Rozdziel posiłki na dni i uwzględnij w opisach każdy składnik oraz instrukcje przygotowania."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500
+        )
 
-def main():
-    st.title("Planowanie posiłków")
+        return response.choices[0].message.content
 
-    # Zbieranie danych od użytkownika
     st.header("Dostosuj swój plan posiłków")
     calories = st.number_input("Ile spożywasz/chcesz spożywać kcal dziennie?", min_value=1000, max_value=5000, step=100)
     exclusions = st.text_area("Jakie produkty nie są/nie mogą być w twojej diecie?")
@@ -93,28 +95,50 @@ def main():
 
     if st.button("Generuj plan posiłków"):
         st.info("Generowanie planu posiłków. Proszę czekać...")
-        meal_plan = generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies)
+        day1, day2, day3 = generate_meal_plan(calories, exclusions, meals_per_day, budget, allergies)
+        st.session_state["day1"] = day1
+        st.session_state["day2"] = day2
+        st.session_state["day3"] = day3
+        st.session_state["modifications"] = ""
         st.success("Plan posiłków został wygenerowany!")
-        st.text_area("Plan posiłków", meal_plan, height=300)
 
-        # Zapisujemy plan do pliku Excel
-        file_path = save_to_excel(meal_plan)
-        
-        # Przycisk do pobrania pliku Excel
-        st.download_button(
-            label="Pobierz plan posiłków", 
-            data=open(file_path, "rb").read(), 
-            file_name="PlanPosilkow.xlsx", 
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    if "day1" in st.session_state:
+        st.subheader("Dzień 1:")
+        st.text_area("Plan posiłków - Dzień 1", st.session_state["day1"], height=1500, key="day1_text")
 
-    # Możliwość modyfikacji
-    st.header("Czy taki plan Ci odpowiada?")
-    feedback = st.radio("Opcje:", ("Tak, jest idealny!", "Nie, chciałbym wprowadzić zmiany."))
+        st.subheader("Dzień 2:")
+        st.text_area("Plan posiłków - Dzień 2", st.session_state["day2"], height=1500, key="day2_text")
 
-    if feedback == "Nie, chciałbym wprowadzić zmiany.":
-        st.text_area("Opisz, co chciałbyś zmienić w planie:", height=100)
-        st.button("Prześlij poprawki")
+        st.subheader("Dzień 3:")
+        st.text_area("Plan posiłków - Dzień 3", st.session_state["day3"], height=1500, key="day3_text")
 
-if __name__ == "__main__":
-    main()
+    if "day1" in st.session_state:
+        st.header("Czy taki plan Ci odpowiada?")
+        feedback = st.radio("Opcje:", ("Tak, jest idealny!", "Nie, chciałbym wprowadzić zmiany."))
+
+        if feedback == "Nie, chciałbym wprowadzić zmiany.":
+            modifications = st.text_area("Opisz, co chciałbyś zmienić w planie:", height=100, key="modifications_text")
+
+            if st.button("Prześlij poprawki"):
+                st.session_state["modifications"] = modifications
+
+                updated_day1 = apply_modifications(st.session_state["day1"], modifications)
+                updated_day2 = apply_modifications(st.session_state["day2"], modifications)
+                updated_day3 = apply_modifications(st.session_state["day3"], modifications)
+
+                st.session_state["day1"] = updated_day1
+                st.session_state["day2"] = updated_day2
+                st.session_state["day3"] = updated_day3
+
+                st.success("Plan został zaktualizowany na podstawie Twoich sugestii!")
+
+                st.subheader("Zaktualizowany plan - Dzień 1:")
+                st.text_area("Plan posiłków - Dzień 1", updated_day1, height=300)
+
+                st.subheader("Zaktualizowany plan - Dzień 2:")
+                st.text_area("Plan posiłków - Dzień 2", updated_day2, height=300)
+
+                st.subheader("Zaktualizowany plan - Dzień 3:")
+                st.text_area("Plan posiłków - Dzień 3", updated_day3, height=300)
+else:
+    st.warning("Proszę wprowadzić klucz API, aby kontynuować.")
